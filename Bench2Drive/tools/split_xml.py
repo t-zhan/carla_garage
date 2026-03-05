@@ -6,7 +6,11 @@ def split_list_into_n_parts(lst, n):
     return (lst[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
 
 def main(base_route, task_num, algo, planner_type):
-    tree = ET.parse(f'{base_route}.xml')
+    from pathlib import Path
+    base_route = Path(base_route)
+    route = base_route.parent.parent / base_route.name
+
+    tree = ET.parse(f'{route}.xml')
     root = tree.getroot()
     case = root.findall('route')
     results = split_list_into_n_parts(case, task_num)

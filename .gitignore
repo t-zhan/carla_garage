@@ -209,3 +209,10 @@ cython_debug/
 /team_code/birds_eye_view/maps_8ppm_cv/Town13.h5
 /evaluation
 /.idea/carla_garage_2.iml
+
+carla/
+pretrained_models/
+nohup_logs/
+.idea/
+checkpoint_endpoint/
+Bench2Drive/leaderboard/data
