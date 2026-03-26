@@ -10,7 +10,7 @@ export LEADERBOARD_ROOT=${WORK_DIR}/leaderboard
 export CHALLENGE_TRACK_CODENAME=SENSORS
 export PORT=$1
 export TM_PORT=$2
-export DEBUG_CHALLENGE=0
+export DEBUG_CHALLENGE=1 # 1 -> output pictures
 export REPETITIONS=1 # multiple evaluation runs
 export RESUME=True
 export IS_BENCH2DRIVE=$3
@@ -24,11 +24,26 @@ export TEAM_CONFIG=$6
 export CHECKPOINT_ENDPOINT=$7
 export SAVE_PATH=$8
 
+export MAX_ROUTE_TRIES=2
+export ROUTE_TRIES=0
+LAST_TRIED_ROUTE=""
 MAX_RETRIES=9999
 RETRY_COUNT=0
 TIMEOUT=100
 
 FIRST_GPU=$(echo ${GPU_RANK} | cut -d',' -f1)
+
+get_current_route() {
+    python3 -c "
+import json, os
+try:
+    with open('$CHECKPOINT_ENDPOINT', 'r') as f:
+        data = json.load(f)
+    print(data['_checkpoint']['progress'][0])
+except:
+    print('')
+"
+}
 
 cleanup() {
     echo "Cleaning up processes for GPU ${GPU_RANK}..."
@@ -41,9 +56,8 @@ cleanup() {
 }
 
 run_evaluation() {
-    echo -e "CUDA_VISIBLE_DEVICES=${GPU_RANK} python ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py --routes=${ROUTES} --repetitions=${REPETITIONS} --track=${CHALLENGE_TRACK_CODENAME} --checkpoint=${CHECKPOINT_ENDPOINT} --agent=${TEAM_AGENT} --agent-config=${TEAM_CONFIG} --debug=${DEBUG_CHALLENGE} --record=${RECORD_PATH} --resume=${RESUME} --port=${PORT} --traffic-manager-port=${TM_PORT} --gpu-rank=${FIRST_GPU} --timeout=${TIMEOUT}"
-
-    CUDA_VISIBLE_DEVICES=${GPU_RANK} python "${LEADERBOARD_ROOT}"/leaderboard/leaderboard_evaluator.py \
+    echo -e "CUDA_VISIBLE_DEVICES=${GPU_RANK} python ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator_robust.py --routes=${ROUTES} --repetitions=${REPETITIONS} --track=${CHALLENGE_TRACK_CODENAME} --checkpoint=${CHECKPOINT_ENDPOINT} --agent=${TEAM_AGENT} --agent-config=${TEAM_CONFIG} --debug=${DEBUG_CHALLENGE} --record=${RECORD_PATH} --resume=${RESUME} --port=${PORT} --traffic-manager-port=${TM_PORT} --gpu-rank=${FIRST_GPU} --timeout=${TIMEOUT}"
+    CUDA_VISIBLE_DEVICES=${GPU_RANK} python "${LEADERBOARD_ROOT}"/leaderboard/leaderboard_evaluator_robust.py \
         --routes="${ROUTES}" \
         --repetitions=${REPETITIONS} \
         --track=${CHALLENGE_TRACK_CODENAME} \
@@ -56,16 +70,17 @@ run_evaluation() {
         --port="${PORT}" \
         --traffic-manager-port="${TM_PORT}" \
         --gpu-rank="${FIRST_GPU}" \
-        --timeout=${TIMEOUT}
-
+        --timeout=${TIMEOUT} &
+    local pid=$!
+    wait $pid
     return $?
 }
 
 # 主循环：失败后自动重试
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    echo "========================================"
-    echo "Attempt $((RETRY_COUNT + 1))/${MAX_RETRIES} for GPU ${GPU_RANK}"
-    echo "========================================"
+    echo "======================================================"
+    echo "Try $((RETRY_COUNT + 1))/${MAX_RETRIES}, route try $(($ROUTE_TRIES + 1))/${MAX_ROUTE_TRIES} for GPU ${GPU_RANK}"
+    echo "======================================================"
     
     run_evaluation
     EXIT_CODE=$?
@@ -74,7 +89,20 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         echo "Evaluation completed successfully on GPU ${GPU_RANK}!"
         exit 0
     fi
-    
+
+    # 线路计数器
+    CURRENT_ROUTE=$(get_current_route)
+    if [ "$CURRENT_ROUTE" = "$LAST_TRIED_ROUTE" ]; then
+        export ROUTE_TRIES=$((ROUTE_TRIES + 1))
+    else
+        export ROUTE_TRIES=1
+        export LAST_TRIED_ROUTE="$CURRENT_ROUTE"
+    fi
+    if [ $ROUTE_TRIES -gt $MAX_ROUTE_TRIES ]; then
+        export ROUTE_TRIES=1
+    fi
+
+    # 总计数器
     RETRY_COUNT=$((RETRY_COUNT + 1))
     echo "Evaluation crashed with exit code ${EXIT_CODE}. Retry ${RETRY_COUNT}/${MAX_RETRIES}..."
     

@@ -9,11 +9,11 @@
 #SBATCH --error=/mnt/lustre/work/geiger/bjaeger25/garage_2_cleanup/results/logs/b2d_009_%a_%A.err   # File to which STDERR will be written
 #SBATCH --partition=2080-galvani
 
-export CARLA_ROOT=/home/autodrive/Projects/carla_garage/carla
-export WORK_DIR=/home/autodrive/Projects/carla_garage/Bench2Drive
+export CARLA_ROOT=./carla
+export WORK_DIR=./Bench2Drive
 export SCENARIO_RUNNER_ROOT=${WORK_DIR}/scenario_runner
 export LEADERBOARD_ROOT=${WORK_DIR}/leaderboard
-export PYTHONPATH=$PYTHONPATH:/home/autodrive/Projects/carla_garage/team_code
+export PYTHONPATH=$PYTHONPATH:./team_code
 export PYTHONPATH="${CARLA_ROOT}/PythonAPI/carla/":"${SCENARIO_RUNNER_ROOT}":"${LEADERBOARD_ROOT}":${PYTHONPATH}
 
 #!/bin/bash
@@ -23,10 +23,9 @@ IS_BENCH2DRIVE=True
 # BASE_ROUTES=${WORK_DIR}/leaderboard/data/bench2drive220
 ROUTE_DIR=${WORK_DIR}/leaderboard/data/route_splits/bench2drive220
 LOG_DIR=${WORK_DIR}/leaderboard/data/logs/bench2drive220
-TEAM_AGENT=/home/autodrive/Projects/carla_garage/team_code/sensor_agent_max.py
+TEAM_AGENT=./team_code/sensor_agent_max.py
 # Must set YOUR_CKPT_PATH
-# MODEL_NAME_OR_PATH=/home/autodrive/Projects/carla_garage/pretrained_models/MaxAR_MiMo-VL-7B-RL_20250917005842/epoch_4
-TEAM_CONFIG=/home/autodrive/Projects/carla_garage/pretrained_models/all_towns  # /home/autodrive/Projects/carla_garage/models/max_v1
+TEAM_CONFIG=./pretrained_models/all_towns
 BASE_CHECKPOINT_ENDPOINT=eval_bench2drive220
 PLANNER_TYPE=traj
 ALGO=max  # tfpp
@@ -35,9 +34,9 @@ SAVE_PATH=${WORK_DIR}/leaderboard/data/eval_bench2drive220_${ALGO}_${PLANNER_TYP
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
 # Example, 8*H100, 1 task per gpu
-# GPU_RANK_LIST=(0 1)
-GPU_RANK_LIST=("0,1,2,3") # ("0,1" "2,3")
-TASK_LIST=(0)
+GPU_RANK_LIST=(0 1)
+# GPU_RANK_LIST=("0,1") # ("0,1" "2,3")
+TASK_LIST=(0 1)
 TASK_NUM=${#TASK_LIST[@]}
 
 mkdir -p $(dirname ${ROUTE_DIR})
@@ -67,8 +66,7 @@ echo -e "\033[32m GPU_RANK_LIST: ${GPU_RANK_LIST[@]} \033[0m"
 echo -e "\033[32m TASK_LIST: ${TASK_LIST[@]} \033[0m"
 echo -e "***********************************************************************************"
 
-length=${#GPU_RANK_LIST[@]}
-for ((i=0; i<$length; i++ )); do
+for ((i=0; i<$TASK_NUM; i++ )); do
       PORT=$((BASE_PORT + i * 150))
       TM_PORT=$((BASE_TM_PORT + i * 150))
       ROUTES="${ROUTE_DIR}_${TASK_LIST[$i]}_${ALGO}_${PLANNER_TYPE}.xml"
@@ -82,9 +80,9 @@ for ((i=0; i<$length; i++ )); do
       echo -e "\033[32m TM_PORT: $TM_PORT \033[0m"
       echo -e "\033[32m CHECKPOINT_ENDPOINT: $CHECKPOINT_ENDPOINT \033[0m"
       echo -e "\033[32m GPU_RANK: $GPU_RANK \033[0m"
-      echo -e "\033[32m bash ${WORK_DIR}/leaderboard/scripts/run_evaluation_with_recovery_max.sh $PORT $TM_PORT $IS_BENCH2DRIVE $ROUTES $TEAM_AGENT $TEAM_CONFIG $CHECKPOINT_ENDPOINT $SAVE_PATH $PLANNER_TYPE $GPU_RANK \033[0m"
+      echo -e "\033[32m bash ${WORK_DIR}/leaderboard/scripts/run_evaluation_robust.sh $PORT $TM_PORT $IS_BENCH2DRIVE $ROUTES $TEAM_AGENT $TEAM_CONFIG $CHECKPOINT_ENDPOINT $SAVE_PATH $PLANNER_TYPE $GPU_RANK \033[0m"
       echo -e "***********************************************************************************"
-      bash ${WORK_DIR}/leaderboard/scripts/run_evaluation_with_recovery_max.sh $PORT $TM_PORT $IS_BENCH2DRIVE $ROUTES $TEAM_AGENT $TEAM_CONFIG $CHECKPOINT_ENDPOINT $SAVE_PATH $PLANNER_TYPE $GPU_RANK 2>&1 > ${LOG_DIR}_${TASK_LIST[$i]}_${ALGO}_${PLANNER_TYPE}_${TIMESTAMP}.log &
+      bash ${WORK_DIR}/leaderboard/scripts/run_evaluation_robust.sh $PORT $TM_PORT $IS_BENCH2DRIVE $ROUTES $TEAM_AGENT $TEAM_CONFIG $CHECKPOINT_ENDPOINT $SAVE_PATH $PLANNER_TYPE $GPU_RANK 2>&1 >> ${LOG_DIR}_${TASK_LIST[$i]}_${ALGO}_${PLANNER_TYPE}_${TIMESTAMP}.log &
       sleep 5
 done
 wait

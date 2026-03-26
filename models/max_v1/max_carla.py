@@ -351,7 +351,7 @@ class Max(PreTrainedModel, GenerationMixin):
                 'history_idx': [-1],
                 'scale_bbox': True,
                 'scale_mask_col': 4.0,
-                'map_folder': 'maps_high_res'
+                'map_folder': 'maps'  # 'maps_high_res'
             }
             self._vehicle = CarlaDataProvider.get_hero_actor()
             self.ss_bev_manager = ObsManager(obs_config, self.config.carla_config)

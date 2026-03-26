@@ -216,3 +216,4 @@ nohup_logs/
 .idea/
 checkpoint_endpoint/
 Bench2Drive/leaderboard/data
+.vscode/

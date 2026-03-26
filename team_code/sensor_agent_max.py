@@ -1,7 +1,7 @@
 """
 Agent file that runs the evaluations for all models supported by this repo.
 Run it by giving it as the agent option to the
-leaderboard/leaderboard/leaderboard_evaluator.py file
+leaderboard/leaderboard/leaderboard_evaluator_robust.py file
 """
 
 import os
@@ -69,7 +69,7 @@ class SensorAgent(autonomous_agent.AutonomousAgent):
         'CHALLENGE_TRACK_CODENAME') == 'MAP' else autonomous_agent.Track.SENSORS
     if self.IS_BENCH2DRIVE:
       self.config_path = path_to_conf_file.split('+')[0]
-      route_index = path_to_conf_file.split('+')[1]
+      route_index = path_to_conf_file.split('+')[-1]
     else:
       self.config_path = path_to_conf_file
 
@@ -304,7 +304,7 @@ class SensorAgent(autonomous_agent.AutonomousAgent):
       self.lon_logger.ego_vehicle = vehicle
       self.lon_logger.world = vehicle.get_world()
 
-      self.nets[1].init_visualization()
+      # self.nets[1].init_visualization()
 
     self._route_planner = RoutePlanner(self.config.route_planner_min_distance, self.config.route_planner_max_distance,
                                        self.lat_ref, self.lon_ref)
